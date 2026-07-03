@@ -1,63 +1,70 @@
-# Contributing to [NAME]: Guidelines for Developers, Tinkerers, and End Users
+# Contributing to TieRodDMS: Guidelines for Developers, Tinkerers, and End Users
 
-Welcome to [NAME]'s open-source community! I'm excited to have you on board as we work together to create <add more here>
+Welcome to the TieRodDMS open-source community! We are excited to have you on board as we work together to build a blazing-fast, decentralized, and deeply isolated open-source Dealership Management System (DMS) built specifically for the automotive, machinery, and rental equipment industries. Our mission is to crush slow, legacy, multi-menu corporate giants by providing parts counters with sub-millisecond local caching, modern visual flows, and seamless, self-hosted multi-tenant operations.
 
 ## Getting Started
-Before diving into the contributing guidelines, please take a moment to familiarize yourself with my project:
-- Visit the [README.md](./README.md) for an overview of [NAME] features and capabilities.
-- Review the [LICENSE](./LICENSE) to understand the terms of use.
-- Review the [CODE OF CONDUCT](./CODE_OF_CONDUCT.md) to understand how to be safe in the community.
+Before diving into the contributing guidelines, please take a moment to familiarize yourself with the project:
+- Visit the [README.md](./README.md) for an overview of TieRodDMS features and capabilities.
+- Review the [LICENSE](./LICENSE) to understand our open-source terms of use.
+- Review the [CODE OF CONDUCT](./CODE_OF_CONDUCT.md) to understand how to keep our community welcoming and collaborative.
 
-## Code Styles Guidelines
-To ensure consistency throughout the project, please follow these code styles guidelines:
-- **Style Guide**: [NAME] utilizes <insert style guide here> for coding standards. Please familiarize yourself with their guidelines for writing clean, readable, and maintainable code.
-- **Documentation**: Use comments to document all <classes, methods, constructors, and variables>. Documentation should be consistently written and informative as to why certain choices are made and the impact.
+## Code Style Guidelines
+To ensure consistency and maintainability across both our central orchestrator and isolated child store storefronts, please adhere to these coding standards:
+
+- **Type Safety First**: We use **TypeScript** for all frontend. Every API payload, component prop, and state tree must be explicitly typed.
+- **Backend Standards**: Our core service layers leverage Laravel. Follow strict PSR-12 coding standards, utilize Form Requests for API input validation, and stick to strict Type Hinting on all method signatures.
+- **Style Guide**: We enforce standard ESLint and Prettier rules for the React/TS frontend to keep code clean and readable. Run `npm run lint` before committing.
+- **Documentation**: Use comments to document complex business logic, background workers, and caching models. Code comments should focus heavily on **why** certain technical choices were made (such as network optimizations or race-condition defenses) rather than just *what* the code does.
 
 ## Tech Stack
-[NAME]'s tech stack is based on the following dependencies:
-- **Module Name**: Utilize <tech> for <purpose>
+TieRodDMS is split into two primary architectures: the **Central Orchestrator** and individual, multi-tenant **Child Store Applications** deployed via Docker.
+
+*   **Frontend**: React, TypeScript, Tailwind CSS
+*   **Backend Framework**: Laravel (PHP)
+*   **API Layer**: GraphQL (enabling lean data requests for maximum performance)
+*   **State & Caching Layer**: Redis (In-memory reads for sub-millisecond lookup speeds)
+*   **Database Persistent Layer**: PostgreSQL (Hard-isolated databases per store instance)
+*   **Infrastructure**: Docker Containers for simple & easy deployment
+
+## Caching & Performance Architecture
+Contributions impacting the core inventory layer must strictly respect our performance blueprint:
+- **Local Sub-MS Speed**: All local storefront part lookups must check the store's local Redis container *first*, falling back to local Postgres only on a cache miss.
+- **Asynchronous Global Merging**: Do not build direct store-to-store live network hooks. To prevent network congestion and store cross-dependencies, the central Orchestrator periodically polls child stores hourly for compressed inventory delta changes, merging them into a central global Redis cache. Cross-store lookups must be executed via quick GraphQL queries against this central aggregated cache.
 
 ## Testing
-To ensure the codebase remains reliable and maintainable, I follow a rigorous testing approach:
-- **Automated Testing**: Employ automated testing with <tech> to increase efficiency and reduce manual effort.
-- **Unit Testing**: Conduct unit testing for individual components to validate internal logic.
-- **Integration Testing**: Perform integration testing for combined functionality to ensure seamless interactions between components.
-- **System Testing**: Conduct system testing for the entire system behavior to evaluate responsiveness, reliability, and capacity.
+To ensure our critical store operations remain reliable, secure, and crash-proof, we implement a multi-layered testing workflow. All pull requests require testing coverage:
 
-## Performance Attributes
-To meet the performance standards, I prioritize:
-- **Multithreading**: Utilize multithreading where possible to improve efficiency and responsiveness.
-- **Algorithm/Data Structure Refinement**: Continuously refine algorithms and data structures to optimize performance.
-- **Regular Updates and Bug Fixes**: Regularly update and fix bugs to maintain performance standards while ensuring security and stability.
+- **Automated Testing**: Built seamlessly into our CI/CD workflow utilizing PHPUnit for backend endpoints and Vitest for the React UI.
+- **Unit Testing**: Conducted for individual TypeScript helper functions, Laravel service classes, and data transformers to validate standalone logic.
+- **Integration Testing**: Explicitly required for our GraphQL schemas and Redis caching layers to ensure state consistency during reads and writes.
+- **System & Race-Condition Testing**: Focused on database locking, API token invalidations, and high-frequency concurrent checkout simulation at the parts counter.
 
 ## Development Phase
-**Build and Deployment**
-Deployment Strategy:
-A full-release rollout would be employed, where all new features and updates are released simultaneously to the production environment. This approach ensures that users have access to the latest version of the software with each release.
 
-Target Environments:
-- **Development**: The primary workspace for developers, where developmental changes are made.
-- **Testing**: An automated testing environment, where code is automatically tested after PRs and commits.
-- **Production**: The final production environment, where releases are deployed for end-users.
+### Build and Deployment
+- **Deployment Strategy**: A full-release rollout architecture is employed, where new features and updates are deployed in unified versions across the multi-tenant store structures. This ensures structural parity between the global orchestrator panel and individual child container images.
+- **Target Environments**:
+    *   **Development**: The primary localized workspace for developers running local Docker Compose environments.
+    *   **Testing**: An automated, isolated environment matching production configurations where code changes are analyzed instantly post-commit.
+    *   **Production**: The secure, final production instance ready for each store's IT team to deploy.
 
-**Automated Build and Deployment Process**
-A CI/CD pipeline automates the build and deployment process, reducing errors and increasing efficiency. This includes:
-- **PRS**: Pull requests are made into the development branch.
-- **Testing**: Once the development for the next release is finished,  the code is tested in the testing branch.
-- **Deployment**: Once the testing succeeds and all bugs have been fixed, A PR is made into the production branch and a release is made.
+### Automated CI/CD Pipeline
+- **PRs**: All feature contributions and bug fixes must target the `development` branch.
+- **Testing Branch**: Once a release tag is prepared, code shifts to the `testing` branch where integrated system pipelines validate network resilience and schema updates.
+- **Deployment**: Upon passing staging checks, a formal release is merged into `production`, safely rebuilding and rolling over the corresponding Docker images.
 
 ## Infrastructure and Monitoring
-The necessary infrastructure includes:
-- **Development, Testing, and Production Environments**: Identical configurations to replicate production-like conditions.
-- **Regular Backups**: Backups will be created (in the form of zipped files) when running the update script, allowing for manual rollbacks if needed.
+- **Identical Staging**: Testing and development container environments should replicate production resource constraints to surface potential race conditions or performance drops early.
+- **Fail-Safe Backups**: Our update and deployment scripts auto-generate compressed zip/tarball schema snapshots and transactional safety states to allow fast, manual rollbacks if a container update fails.
+- **Self-Healing Design**: Microservices and store sub-apps must be written with graceful exits, health-check endpoints, and self-healing worker loops so an infrastructure hiccup never stalls an active parts counter.
 
 ## Contributing Guidelines
-1. Fork the repository and create a new branch.
-2. Make changes in your branch.
-3. Commit changes with meaningful commit messages.
-4. Push changes to your remote repository.
-5. Open a pull request against the development branch.
-6. Participate in code reviews and discussions.
-7. Follow testing guidelines and run automated tests.
+1. Fork the TieRodDMS repository and create your feature branch (`git checkout -b feature/amazing-feature`).
+2. Implement your changes locally, ensuring you write comprehensive unit tests.
+3. Keep your commit messages clear, concise, and structured (e.g., `feat(inventory): add automatic local Redis cache invalidation`).
+4. Push your branch to your remote fork.
+5. Submit a detailed Pull Request against our `development` branch.
+6. Engage with our core reviewers during architectural code reviews and discussions.
+7. Ensure all automated CI pipelines pass successfully before requesting final approval.
 
-By following these guidelines, we ensure that the project is developed in a collaborative, efficient, and secure manner.
+By adhering to these architectural guidelines, we preserve a fast, heavily protected, and incredibly scalable platform that the entire automotive and heavy equipment industry can rely on. Thank you for making TieRodDMS better!
